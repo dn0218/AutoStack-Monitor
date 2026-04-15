@@ -1,0 +1,32 @@
+[Unit]
+
+Description=WordPress Container
+
+After=wp-stack-pod.service mariadb.service redis.service
+
+
+
+[Container]
+
+Image=docker.io/library/wordpress:latest
+
+Environment=WORDPRESS_DB_HOST=127.0.0.1
+
+Environment=WORDPRESS_DB_NAME=wordpress
+
+Environment=WORDPRESS_DB_USER=wpuser
+
+Environment=WORDPRESS_DB_PASSWORD=wppassword
+
+Pod=wp-stack.pod
+
+Volume=/home/{{ deploy_user }}/data/wp:/var/www/html:Z
+
+
+
+[Service]
+
+Restart=always
+
+RestartSec=5
+

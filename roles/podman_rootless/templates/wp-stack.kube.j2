@@ -1,0 +1,14 @@
+[Unit]
+Description=WordPress Stack Managed by Kube YAML
+After=network-online.target
+
+[Kube]
+# 指向刚才创建的 YAML 文件
+Yaml=wp-stack-kube.yaml
+# 映射端口
+PublishPort=8081:80
+# 使用我们定义的网络
+Network=wp-network.network
+
+[Install]
+WantedBy=default.target

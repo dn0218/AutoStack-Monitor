@@ -1,0 +1,2 @@
+wordpress_port: 8081  # 避开 8080
+db_port: 3306

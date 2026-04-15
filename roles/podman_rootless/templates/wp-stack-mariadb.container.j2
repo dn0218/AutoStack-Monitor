@@ -1,0 +1,17 @@
+[Unit]
+Description=MariaDB Container
+After=wp-stack.pod
+
+[Container]
+Image=docker.io/library/mariadb:10.6
+Environment=MARIADB_ROOT_PASSWORD=password123
+Environment=MARIADB_DATABASE=wordpress
+Environment=MARIADB_USER=wpuser
+Environment=MARIADB_PASSWORD=wppassword
+Pod=wp-stack.pod
+# SELinux Same mark
+Volume=/home/{{ deploy_user }}/data/db:/var/lib/mysql:Z
+
+[Service]
+Restart=always
+

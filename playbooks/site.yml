@@ -1,0 +1,17 @@
+---
+# 第一阶段：用 root 账户打地基
+- name: Phase 1 - Infrastructure Setup
+  hosts: linux_nodes
+  become: yes
+  # 强制在此阶段使用 root 登录（如果你的 inventory 默认不是 root）
+  # remote_user: root 
+  roles:
+    - common
+
+# 第二阶段：用 appuser 账户跑应用
+- name: Phase 2 - App Deployment
+  hosts: linux_nodes
+  become: no  # 绝对不要 sudo
+  remote_user: "{{ deploy_user }}" # 切换到 appuser 进行 SSH 连接
+  roles:
+    - podman_rootless

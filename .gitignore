@@ -1,0 +1,11 @@
+# 敏感文件
+*.pem
+*.key
+*.vault
+# 目录
+data/
+.config/
+# 临时文件
+*.retry
+*.log
+__pycache__/

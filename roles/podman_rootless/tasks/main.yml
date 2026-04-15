@@ -1,0 +1,131 @@
+---
+# 1. 环境准备与激活 (针对 Ubuntu 增强)
+- name: Force start user systemd instance for Ubuntu
+  ansible.builtin.command: "systemctl --user is-system-running"
+  become: yes
+  become_user: "{{ deploy_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ deploy_user_uid }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ deploy_user_uid }}/bus"
+  register: user_bus_check
+  failed_when: false
+  changed_when: false
+  when: ansible_os_family == "Debian"
+
+# 2. 清理阶段 (清理所有可能的旧服务)
+- name: Stop and disable all possible old services
+  ansible.builtin.systemd:
+    name: "{{ item }}.service"
+    state: stopped
+    enabled: no
+    scope: user
+  become: yes
+  become_user: "{{ deploy_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ deploy_user_uid }}"
+  # 同时清理 .pod 和 .kube 方案涉及的服务名
+  loop: [ 'wordpress', 'mariadb', 'redis', 'wp-stack', 'wp-stack-pod', 'wp-stack-kube' ]
+  failed_when: false
+
+- name: Force cleanup Podman objects
+  ansible.builtin.shell: |
+    podman pod rm -f wp-stack || true
+    podman rm -f systemd-wordpress systemd-mariadb systemd-redis || true
+  become: yes
+  become_user: "{{ deploy_user }}"
+  failed_when: false
+
+- name: Wipe configuration and data directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "/home/{{ deploy_user }}/.config/containers/systemd"
+    - "/home/{{ deploy_user }}/data"
+
+# 3. 部署阶段
+- name: Recreate directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+  loop:
+    - "/home/{{ deploy_user }}/.config/containers/systemd"
+    - "/home/{{ deploy_user }}/data/db"
+    - "/home/{{ deploy_user }}/data/wp"
+    - "/home/{{ deploy_user }}/data/redis"
+
+# --- 分支逻辑 A: Rocky/RedHat 使用原有方案 ---
+- name: Deploy Quadlet Files (Standard Pod/Container)
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "/home/{{ deploy_user }}/.config/containers/systemd/{{ item.dest }}"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0644'
+  loop:
+    - { src: 'wp-network.network.j2', dest: 'wp-network.network' }
+    - { src: 'wp-stack.pod.j2', dest: 'wp-stack.pod' }
+    - { src: 'wp-stack-mariadb.container.j2', dest: 'wp-stack-mariadb.container' }
+    - { src: 'wp-stack-redis.container.j2', dest: 'wp-stack-redis.container' }
+    - { src: 'wp-stack-wordpress.container.j2', dest: 'wp-stack-wordpress.container' }
+  when: ansible_os_family == "RedHat"
+  notify:
+    - Reload systemd user daemon
+    - Reload systemd generators
+
+# --- 分支逻辑 B: Ubuntu/Debian 使用 Kube 方案 ---
+- name: Deploy Quadlet Files (Kube Way)
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "/home/{{ deploy_user }}/.config/containers/systemd/{{ item.dest }}"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0644'
+  loop:
+    - { src: 'wp-network.network.j2', dest: 'wp-network.network' }
+    - { src: 'wp-stack-kube.yaml.j2', dest: 'wp-stack-kube.yaml' }
+    - { src: 'wp-stack.kube.j2', dest: 'wp-stack.kube' }
+  when: ansible_os_family == "Debian"
+  notify:
+    - Reload systemd user daemon
+    - Reload systemd generators
+
+- name: Force notify to run now
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for Systemd to generate units
+  ansible.builtin.pause:
+    seconds: 5
+
+# 4. 启动阶段
+# --- Rocky 启动任务 ---
+- name: Start WP Stack Pod (Rocky)
+  ansible.builtin.systemd:
+    name: wp-stack-pod.service
+    state: started
+    enabled: yes
+    scope: user
+  become: yes
+  become_user: "{{ deploy_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ deploy_user_uid }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ deploy_user_uid }}/bus"
+  when: ansible_os_family == "RedHat"
+
+# --- Ubuntu 启动任务 ---
+- name: Start WP Stack Pod (Ubuntu)
+  ansible.builtin.systemd:
+    # ！！！修改这里：去掉 -kube，改为 dryrun 显示的 wp-stack.service ！！！
+    name: wp-stack.service
+    state: started
+    enabled: yes
+    scope: user
+  become: yes
+  become_user: "{{ deploy_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ deploy_user_uid }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ deploy_user_uid }}/bus"
+  when: ansible_os_family == "Debian"

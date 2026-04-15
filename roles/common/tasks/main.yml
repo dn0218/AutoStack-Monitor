@@ -1,0 +1,78 @@
+---
+# 1. 安装基础包
+- name: Install base packages
+  ansible.builtin.package:
+    name: [ 'podman', 'python3-pip', 'acl', 'sudo' ]
+    state: present
+  become: yes
+
+- name: Determine sudo group name
+  set_fact:
+    sudo_group: "{{ 'sudo' if ansible_os_family == 'Debian' else 'wheel' }}"
+
+# 2. 创建部署用户并配置权限
+- name: Create deploy user
+  ansible.builtin.user:
+    name: "{{ deploy_user }}"
+    shell: /bin/bash
+    groups: "{{ sudo_group }}"
+    append: yes
+  become: yes
+
+- name: Get deploy_user UID
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ deploy_user }}"
+
+- name: Set deploy_user_uid fact
+  set_fact:
+    deploy_user_uid: "{{ getent_passwd[deploy_user][1] }}"
+
+- name: Set authorized keys
+  ansible.posix.authorized_key:
+    user: "{{ deploy_user }}"
+    state: present
+    key: "{{ item }}"
+  loop:
+    - "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+  become: yes
+
+- name: Allow passwordless sudo
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers.d/{{ deploy_user }}
+    line: "{{ deploy_user }} ALL=(ALL) NOPASSWD:ALL"
+    create: yes
+    mode: '0440'
+    validate: '/usr/sbin/visudo -cf %s'
+  become: yes
+
+- name: Setup ansible tmp directory for appuser
+  ansible.builtin.file:
+    path: /home/{{ deploy_user }}/.ansible/tmp
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0700'
+
+# 3. 容器环境初始化
+- name: Enable lingering for appuser
+  ansible.builtin.command: "loginctl enable-linger {{ deploy_user }}"
+  become: yes
+  args:
+    creates: "/var/lib/systemd/linger/{{ deploy_user }}"
+
+- name: Restart user systemd manager
+  ansible.builtin.shell: "systemctl --user restart dbus"
+  become: yes
+  become_user: "{{ deploy_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ deploy_user_uid }}"
+  failed_when: false
+
+- name: Ensure subuid/subgid entries
+  ansible.builtin.lineinfile:
+    path: /etc/{{ item }}
+    line: "{{ deploy_user }}:100000:65536"
+    create: yes
+  loop: [ 'subuid', 'subgid' ]
+  become: yes

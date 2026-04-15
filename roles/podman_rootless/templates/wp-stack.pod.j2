@@ -1,0 +1,12 @@
+[Unit]
+Description=WordPress Stack Pod
+After=network-online.target
+
+[Pod]
+PodName=wp-stack
+PublishPort=8081:80
+Network=wp-network.network
+
+[Install]
+WantedBy=default.target
+

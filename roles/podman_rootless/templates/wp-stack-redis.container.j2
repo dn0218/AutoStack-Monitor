@@ -1,0 +1,11 @@
+[Unit]
+Description=Redis Container
+After=wp-stack.pod
+
+[Container]
+Image=docker.io/library/redis:alpine
+# Add Pod
+Pod=wp-stack.pod
+
+[Service]
+Restart=always
