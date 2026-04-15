@@ -1,2 +1,18 @@
 ---
-# tasks file for roles/nfs_client
+# 1. 安装客户端组件 (Ubuntu 对应 nfs-common)
+- name: Install NFS Client on Ubuntu
+  ansible.builtin.package:
+    name: nfs-common
+    state: present
+  become: yes
+
+# 2. 挂载目录
+- name: Mount NFS share from node1
+  ansible.posix.mount:
+    path: "{{ nfs_mount_path }}"
+    # 动态获取 inventory 中 node1 定义的 ansible_host
+    src: "{{ hostvars['node1']['ansible_host'] }}:{{ nfs_export_path }}"
+    fstype: nfs
+    opts: "rw,sync,hard,intr"
+    state: mounted
+  become: yes

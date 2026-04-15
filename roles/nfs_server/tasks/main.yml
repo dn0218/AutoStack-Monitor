@@ -1,0 +1,38 @@
+---
+# 1. 安装服务端组件
+- name: Install NFS Server
+  ansible.builtin.package:
+    name: nfs-utils
+    state: present
+  become: yes
+
+# 2. 创建共享目录并放开权限 (为了适配 Rootless UID 映射，建议设为 777 或匹配映射后的 UID)
+- name: Create export directory
+  ansible.builtin.file:
+    path: "{{ nfs_export_path }}"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0777'
+  become: yes
+
+# 3. 配置 exports 文件 (使用 no_root_squash 简化权限处理)
+- name: Configure /etc/exports
+  ansible.builtin.lineinfile:
+    path: /etc/exports
+    # 使用 {{ ansible_default_ipv4.network }}/{{ ansible_default_ipv4.netmask }} 
+    # 或者为了简单直观，直接使用目标网段变量
+    line: "{{ nfs_export_path }} {{ ansible_default_ipv4.network }}/24(rw,sync,no_root_squash,no_subtree_check)"
+    create: yes
+  become: yes
+  notify: Restart NFS Server
+
+# 4. 配置防火墙 (RHEL 9 必须步骤)
+- name: Allow NFS services in firewalld
+  ansible.posix.firewalld:
+    service: "{{ item }}"
+    permanent: yes
+    state: enabled
+    immediate: yes
+  loop: [ 'nfs', 'mountd', 'rpc-bind' ]
+  become: yes

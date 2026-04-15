@@ -1,17 +1,24 @@
 ---
-# 第一阶段：用 root 账户打地基
-- name: Phase 1 - Infrastructure Setup
+# 第一阶段：基础环境与 NFS 服务端
+- name: Phase 1 - Infrastructure & NFS Server
   hosts: linux_nodes
   become: yes
-  # 强制在此阶段使用 root 登录（如果你的 inventory 默认不是 root）
-  # remote_user: root 
   roles:
     - common
+    # 仅在被标记为 NFS Server 的节点上运行
+    - { role: nfs_server, when: is_nfs_server | bool }
 
-# 第二阶段：用 appuser 账户跑应用
-- name: Phase 2 - App Deployment
+# 第二阶段：NFS 客户端挂载 (必须在 Server 之后)
+- name: Phase 2 - Storage Mount
   hosts: linux_nodes
-  become: no  # 绝对不要 sudo
-  remote_user: "{{ deploy_user }}" # 切换到 appuser 进行 SSH 连接
+  become: yes
+  roles:
+    - { role: nfs_client, when: not is_nfs_server | bool }
+
+# 第三阶段：容器应用部署 (此时 /home/{{ deploy_user }}/data/wp 已经是挂载状态)
+- name: Phase 3 - App Deployment
+  hosts: linux_nodes
+  become: no
+  remote_user: "{{ deploy_user }}"
   roles:
     - podman_rootless
