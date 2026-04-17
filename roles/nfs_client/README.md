@@ -1,38 +1,25 @@
-Role Name
-=========
+# Role: NFS Storage (Server & Client)
 
-A brief description of the role goes here.
+## 中文说明
+### 功能概述
+实现跨主机的持久化存储，解决 WordPress 附件同步问题。
+**服务端**: 在 `node1` 上安装并配置 `nfs-kernel-server` 。
+**安全性**: 针对 RHEL 系统自动配置 `firewalld` 放行 NFS 流量 。
+**挂载策略**: 客户端使用 `rw,sync,hard` 参数挂载，确保数据写入的可靠性 。
 
-Requirements
-------------
+### 为什么这样写？
+**no_root_squash**: 在 exports 中使用此参数是为了简化 rootless 容器挂载时的权限冲突问题。
+**条件触发**: 通过 `is_nfs_server` 变量灵活控制节点角色，避免重复安装 。
 
-Any pre-requisites that may not be covered by Ansible itself or the role should be mentioned here. For instance, if the role uses the EC2 module, it may be a good idea to mention in this section that the boto package is required.
+---
 
-Role Variables
---------------
+## English Description
+### Overview
+Implements cross-host persistent storage to resolve WordPress attachment synchronization issues.
+**Server**: Installs and configures `nfs-kernel-server` on `node1`.
+**Security**: Automatically configures `firewalld` to allow NFS traffic on RHEL systems.
+**Mount Strategy**: Clients use `rw,sync,hard` parameters for mounting to ensure data reliability.
 
-A description of the settable variables for this role should go here, including any variables that are in defaults/main.yml, vars/main.yml, and any variables that can/should be set via parameters to the role. Any variables that are read from other roles and/or the global scope (ie. hostvars, group vars, etc.) should be mentioned here as well.
-
-Dependencies
-------------
-
-A list of other roles hosted on Galaxy should go here, plus any details in regards to parameters that may need to be set for other roles, or variables that are used from other roles.
-
-Example Playbook
-----------------
-
-Including an example of how to use your role (for instance, with variables passed in as parameters) is always nice for users too:
-
-    - hosts: servers
-      roles:
-         - { role: username.rolename, x: 42 }
-
-License
--------
-
-BSD
-
-Author Information
-------------------
-
-An optional section for the role authors to include contact information, or a website (HTML is not allowed).
+### Rationale
+**no_root_squash**: This parameter is used in exports to simplify permission conflicts during rootless container mounting.
+**Conditional Execution**: Uses the `is_nfs_server` variable to flexibly control node roles and prevent redundant installations.
