@@ -45,6 +45,7 @@ The project highlights how to leverage **Podman Quadlet** technology to avoid ro
    ```
 
 2. **Configure the inventory 配置清单**:
+   
 Edit inventory.ini and specify the IP addresses and SSH users of the target hosts.
 
 3. **Run the deployment 执行部署**:
