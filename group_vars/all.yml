@@ -1,0 +1,4 @@
+# 指定哪台机器是存储中心
+nfs_server_host: "{{ hostvars['node1']['ansible_host'] }}"
+# 自动获取当前节点的网络号
+internal_network: "{{ ansible_default_ipv4.network }}/24"

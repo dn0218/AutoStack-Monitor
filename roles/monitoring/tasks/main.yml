@@ -1,2 +1,62 @@
 ---
-# tasks file for roles/monitoring
+# 1. 基础配置
+- name: Ensure config directory exists
+  ansible.builtin.file:
+    path: "/home/{{ deploy_user }}/.config/containers/systemd"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0755'
+
+- name: Ensure Grafana data directory exists and has correct ownership
+  ansible.builtin.file:
+    path: "/home/{{ deploy_user }}/grafana_data"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0755' # Rootless 模式下 472 用户需要写入权限，或者使用 podman unshare
+  when: inventory_hostname == 'node1'
+
+# 2. 所有节点部署 Zabbix Agent 2
+- name: Deploy Zabbix Agent Quadlet
+  ansible.builtin.template:
+    src: zabbix-agent.container.j2
+    dest: "/home/{{ deploy_user }}/.config/containers/systemd/zabbix-agent.container"
+  notify: Reload systemd user daemon
+
+# 3. 仅在 node1 部署 Grafana
+- name: Deploy Grafana Quadlet (node1 only)
+  ansible.builtin.template:
+    src: grafana.container.j2
+    dest: "/home/{{ deploy_user }}/.config/containers/systemd/grafana.container"
+  when: inventory_hostname == 'node1'
+  notify: Reload systemd user daemon
+
+# 强制立即执行 daemon-reload
+- name: Force notify to run now
+  ansible.builtin.meta: flush_handlers
+
+# 3. 验证并等待服务文件生成
+# Quadlet 生成服务需要一点时间，且必须在 daemon-reload 后
+- name: Wait for unit files to be generated
+  ansible.builtin.pause:
+    seconds: 2
+
+# 4. 启动服务
+- name: Start Monitoring Services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+    scope: user
+  become: yes
+  become_user: "{{ deploy_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ deploy_user_uid }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ deploy_user_uid }}/bus"
+    # 新增：确保 Podman 能找到配置
+    XDG_CONFIG_HOME: "/home/{{ deploy_user }}/.config"
+  loop:
+    - zabbix-agent.service
+    - "{{ 'grafana.service' if inventory_hostname == 'node1' else '' }}"
+  when: item != ''

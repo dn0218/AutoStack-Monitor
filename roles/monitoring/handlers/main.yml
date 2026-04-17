@@ -1,2 +1,10 @@
 ---
-# handlers file for roles/monitoring
+- name: Reload systemd user daemon
+  ansible.builtin.systemd:
+    daemon_reload: yes
+    scope: user
+  become: yes
+  become_user: "{{ deploy_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ deploy_user_uid }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ deploy_user_uid }}/bus"

@@ -22,3 +22,10 @@
   remote_user: "{{ deploy_user }}"
   roles:
     - podman_rootless
+
+# 第四阶段：监控部署
+- name: Phase 4 - Monitoring Integration
+  hosts: linux_nodes
+  become: yes  # 监控部署通常涉及安装插件或开启 Socket 权限，可能需要特权
+  roles:
+    - monitoring

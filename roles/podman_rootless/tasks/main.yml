@@ -35,13 +35,13 @@
   become_user: "{{ deploy_user }}"
   failed_when: false
 
-- name: Wipe configuration and data directories
+- name: Wipe ONLY configuration directories
   ansible.builtin.file:
     path: "{{ item }}"
     state: absent
   loop:
     - "/home/{{ deploy_user }}/.config/containers/systemd"
-    - "/home/{{ deploy_user }}/data"
+    # 不要删除整个 /home/{{ deploy_user }}/data，因为里面可能有挂载点
 
 # 3. 部署阶段
 - name: Recreate directories

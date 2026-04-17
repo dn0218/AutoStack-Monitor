@@ -76,3 +76,19 @@
     create: yes
   loop: [ 'subuid', 'subgid' ]
   become: yes
+
+- name: Enable Podman API Socket for User
+  ansible.builtin.systemd:
+    name: podman.socket
+    state: started
+    enabled: yes
+    scope: user
+  become: yes
+  become_user: "{{ deploy_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ deploy_user_uid }}" 
+
+- name: Ensure SELinux allows container to read sockets
+  ansible.builtin.shell: "setsebool -P container_manage_cgroup on"
+  become: yes
+  when: ansible_os_family == "RedHat"

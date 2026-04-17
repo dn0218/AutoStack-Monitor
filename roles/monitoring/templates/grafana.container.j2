@@ -1,0 +1,19 @@
+[Unit]
+Description=Grafana Server
+After=network-online.target
+
+[Container]
+Image=docker.io/grafana/grafana-oss:latest
+ContainerName=grafana
+PublishPort=3000:3000
+# 预装 Zabbix 插件，这样面试官登录后直接就能用
+Environment=GF_INSTALL_PLUGINS=alexanderzobnin-zabbix-app
+# 允许匿名登录（面试演示神器：无需输入密码直接看盘）
+Environment=GF_AUTH_ANONYMOUS_ENABLED=true
+Environment=GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

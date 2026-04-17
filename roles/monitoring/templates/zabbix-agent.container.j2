@@ -1,0 +1,21 @@
+[Unit]
+Description=Zabbix Agent 2 Container
+After=network-online.target
+
+[Container]
+Image=docker.io/zabbix/zabbix-agent2:latest
+ContainerName=zabbix-agent
+# 关键：将宿主机的用户态 Podman Socket 映射进容器
+Volume=/run/user/{{ deploy_user_uid }}/podman/podman.sock:/run/user/{{ deploy_user_uid }}/podman/podman.sock:ro
+Environment=ZBX_HOSTNAME={{ inventory_hostname }}
+Environment=ZBX_SERVER_HOST={{ hostvars['node1']['ansible_host'] }}
+# 告知 Agent 使用哪个 Socket 路径
+Environment=ZBX_ASSET_PODMAN_SOCKET=/run/user/{{ deploy_user_uid }}/podman/podman.sock
+PublishPort=10051:10050
+
+[Service]
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
